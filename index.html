@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation Annotator</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --success-color: #4CAF50;
+            --warning-color: #FFC107;
+            --error-color: #F44336;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --border-color: #e0e0e0;
+            --background-light: #f5f5f5;
+            --panel-width: 50%;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background-light);
+            color: var(--text-primary);
+            line-height: 1.6;
+            height: 100vh;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+        }
+        .upload-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        .upload-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        .upload-box {
+            position: relative;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            margin-top: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-box:hover {
+            border-color: var(--primary-color);
+            background: #f8f9fa;
+        }
+        .upload-box.dragover {
+            border-color: var(--primary-color);
+            background: #e3f2fd;
+        }
+        .upload-content {
+            pointer-events: none;
+        }
+        .upload-content i {
+            font-size: 48px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        .upload-content small {
+            display: block;
+            margin-top: 10px;
+            color: var(--text-secondary);
+        }
+        .upload-status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .main-interface {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .app-header {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .content-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .conversation-panel,
+        .annotation-panel {
+            width: var(--panel-width);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .conversation-panel {
+            border-right: 1px solid var(--border-color);
+        }
+        .panel-header {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .conversation-display {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            background: white;
+            -webkit-overflow-scrolling: touch;
+        }
+        .conversation-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .message {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            max-width: 85%;
+        }
+        .message-header {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        .customer {
+            background: #e3f2fd;
+            margin-left: auto;
+            border-left: 4px solid var(--primary-color);
+        }
+        .bot {
+            background: #f0f4c3;
+            margin-right: auto;
+            border-left: 4px solid #9e9d24;
+        }
+        .navigation-controls {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .progress-bar-container {
+            flex: 1;
+            max-width: 300px;
+        }
+        .progress {
+            height: 8px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .buckets-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            background: white;
+            -webkit-overflow-scrolling: touch;
+        }
+        .bucket {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .bucket:hover {
+            background: #e9ecef;
+        }
+        .bucket.checked {
+            border-color: var(--primary-color);
+            background: #e3f2fd;
+        }
+        .bucket-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+        }
+        .bucket-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .bucket-comment {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, margin-top 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .bucket-comment.open {
+            max-height: 200px;
+            margin-top: 10px;
+            opacity: 1;
+        }
+        .bucket textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+        .bucket select.hva-dropdown {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+        .bucket select.hva-dropdown:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+        .bucket textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+        .status-message {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 4px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        .loading-spinner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @media (max-width: 992px) {
+            .content-container {
+                flex-direction: column;
+            }
+            .conversation-panel,
+            .annotation-panel {
+                width: 100%;
+                height: 50vh;
+            }
+            .conversation-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+        }
+        @media (max-width: 768px) {
+            .app-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            .navigation-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .progress-bar-container {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="upload-screen" class="upload-screen">
+        <div class="upload-container">
+            <h1>Conversation Annotator</h1>
+            <div class="upload-box" id="upload-box">
+                <input type="file" id="excel-upload" accept=".xlsx" style="display: none;">
+                <div class="upload-content">
+                    <i class="material-icons">cloud_upload</i>
+                    <p>Drag & drop your Excel file here or click to browse</p>
+                    <small>Only .xlsx files are supported</small>
+                </div>
+            </div>
+            <div id="upload-status" class="upload-status"></div>
+        </div>
+    </div>
+    <div id="main-interface" class="main-interface" style="display: none;">
+        <header class="app-header">
+            <h1>Conversation Annotator</h1>
+            <div class="header-controls">
+                <span id="progress-text">0/0 Conversations</span>
+                <button id="download-btn" class="btn btn-primary">
+                    <i class="material-icons">download</i> Download
+                </button>
+            </div>
+        </header>
+        <div class="content-container">
+            <div class="conversation-panel">
+                <div class="panel-header">
+                    <h2>Conversation</h2>
+                    <div class="conversation-info" id="conversation-info"></div>
+                </div>
+                <div class="conversation-display" id="conversation-display"></div>
+                <div class="navigation-controls">
+                    <button id="prev-btn" class="btn btn-outline-primary">
+                        <i class="material-icons">arrow_back</i> Previous
+                    </button>
+                    <div class="progress-bar-container">
+                        <div class="progress">
+                            <div id="progress" class="progress-bar" role="progressbar"></div>
+                        </div>
+                    </div>
+                    <button id="next-btn" class="btn btn-outline-primary">
+                        Next <i class="material-icons">arrow_forward</i>
+                    </button>
+                </div>
+            </div>
+            <div class="annotation-panel">
+                <div class="panel-header">
+                    <h2>Annotations</h2>
+                    <button id="save-btn" class="btn btn-success">
+                        <i class="material-icons">save</i> Save
+                    </button>
+                </div>
+                <div class="buckets-container" id="bucket-area"></div>
+            </div>
+        </div>
+    </div>
+    <div id="status-message" class="status-message"></div>
+    <div id="loading-spinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+    <script>
+        const tool = {
+            currentIndex: 0,
+            conversations: [],
+            annotations: {},
+            buckets: [
+                "Bot Response",
+                "HVA",
+                "AB feature/HVA Related Query",
+                "Personalized/Account-Specific Queries",
+                "Promo & Freebie Related Queries",
+                "Help-page/Direct Customer Service",
+                "BP for Non-Profit Organisation Related Query",
+                "Personal Prime Related Query",
+                "Customer Behavior",
+                "Other Queries",
+                "Overall Observations"
+            ],
+            hvaOptions: [
+                "3WM (3-Way Match)",
+                "Account Authority",
+                "Add User",
+                "Analytics",
+                "ATEP (Amazon Tax Exemption Program)",
+                "Business Lists",
+                "Business Order Information",
+                "Custom Quotes",
+                "Guided Buying",
+                "PBI",
+                "Quantity Discount",
+                "Shared Settings",
+                "SSO",
+                "Subscibe & Save (formerly Recurring Delivery)"
+            ]
+        };
+        const elements = {
+            uploadScreen: document.getElementById('upload-screen'),
+            mainInterface: document.getElementById('main-interface'),
+            uploadBox: document.getElementById('upload-box'),
+            fileInput: document.getElementById('excel-upload'),
+            uploadStatus: document.getElementById('upload-status'),
+            conversationDisplay: document.getElementById('conversation-display'),
+            conversationInfo: document.getElementById('conversation-info'),
+            bucketArea: document.getElementById('bucket-area'),
+            prevBtn: document.getElementById('prev-btn'),
+            nextBtn: document.getElementById('next-btn'),
+            saveBtn: document.getElementById('save-btn'),
+            downloadBtn: document.getElementById('download-btn'),
+            progress: document.getElementById('progress'),
+            progressText: document.getElementById('progress-text'),
+            statusMessage: document.getElementById('status-message'),
+            loadingSpinner: document.getElementById('loading-spinner')
+        };
+        function createBucketUI() {
+            tool.buckets.forEach(bucket => {
+                let contentHTML = '';
+                if (bucket === "HVA") {
+                    contentHTML = `<select class="form-select hva-dropdown" name="${bucket}-select"><option value="">Select HVA type...</option>${tool.hvaOptions.map(option => `<option value="${option}">${option}</option>`).join('')}</select>`;
+                } else {
+                    contentHTML = `<textarea placeholder="Add comments for ${bucket}" name="${bucket}" rows="3"></textarea>`;
+                }
+                const bucketHTML = `<div class="bucket" data-bucket="${bucket}"><label class="bucket-label"><input type="checkbox" name="${bucket}"><span>${bucket}</span></label><div class="bucket-comment">${contentHTML}</div></div>`;
+                elements.bucketArea.insertAdjacentHTML('beforeend', bucketHTML);
+            });
+        }
+        elements.uploadBox.addEventListener('click', () => {
+            elements.fileInput.click();
+        });
+        elements.fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                showStatus('⚠️ No file selected', 'warning');
+                return;
+            }
+            if (!file.name.endsWith('.xlsx')) {
+                showStatus('❌ Please select an Excel (.xlsx) file', 'error');
+                return;
+            }
+            try {
+                showLoading(true);
+                showStatus('📂 Loading file...', 'info');
+                const data = await readExcelFile(file);
+                if (!data || data.length === 0) {
+                    throw new Error('No data found in file');
+                }
+                processExcelData(data);
+                elements.uploadScreen.style.display = 'none';
+                elements.mainInterface.style.display = 'flex';
+                showStatus('✅ File loaded successfully!', 'success');
+            } catch (error) {
+                showStatus('❌ Error: ' + (error.message || 'Failed to load file'), 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+        elements.uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            elements.uploadBox.classList.add('dragover');
+        });
+        elements.uploadBox.addEventListener('dragleave', () => {
+            elements.uploadBox.classList.remove('dragover');
+        });
+        elements.uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            elements.uploadBox.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.xlsx')) {
+                elements.fileInput.files = e.dataTransfer.files;
+                elements.fileInput.dispatchEvent(new Event('change'));
+            } else {
+                showStatus('❌ Please select an Excel (.xlsx) file', 'error');
+            }
+        });
+        async function readExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(sheet);
+                        resolve(jsonData);
+                    } catch (error) {
+                        reject(new Error('Failed to parse Excel file'));
+                    }
+                };
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+        function processExcelData(rawData) {
+            const groupedData = {};
+            rawData.forEach(row => {
+                if (!groupedData[row.Id]) {
+                    groupedData[row.Id] = [];
+                }
+                groupedData[row.Id].push(row);
+            });
+            tool.conversations = Object.values(groupedData);
+            tool.currentIndex = 0;
+            tool.annotations = {};
+            updateProgressBar();
+            displayConversation();
+        }
+        function displayConversation() {
+            const conv = tool.conversations[tool.currentIndex];
+            const lastMessage = conv[conv.length - 1];
+            elements.conversationInfo.innerHTML = `<div class="info-item"><strong>ID:</strong> ${conv[0].Id}</div><div class="info-item"><strong>Feedback:</strong> <span class="badge ${lastMessage['Customer Feedback']?.toLowerCase() === 'negative' ? 'bg-danger' : 'bg-success'}">${lastMessage['Customer Feedback'] || 'N/A'}</span></div>`;
+            let html = '<div class="messages">';
+            conv.forEach(message => {
+                if (message.llmGeneratedUserMessage) {
+                    html += `<div class="message customer"><div class="message-header">👤 Customer</div>${message.llmGeneratedUserMessage}</div>`;
+                }
+                if (message.botMessage) {
+                    html += `<div class="message bot"><div class="message-header">🤖 Bot</div>${message.botMessage}</div>`;
+                }
+            });
+            html += '</div>';
+            elements.conversationDisplay.innerHTML = html;
+            updateProgressBar();
+            loadAnnotations();
+        }
+        function updateProgressBar() {
+            const progress = ((tool.currentIndex + 1) / tool.conversations.length) * 100;
+            elements.progress.style.width = `${progress}%`;
+            elements.progressText.textContent = `${tool.currentIndex + 1}/${tool.conversations.length} Conversations`;
+        }
+        function saveCurrentAnnotations() {
+            const convId = tool.conversations[tool.currentIndex][0].Id;
+            const hasAnnotations = tool.buckets.some(bucket => document.querySelector(`input[name="${bucket}"]`).checked);
+            if (!hasAnnotations) {
+                showStatus('⚠️ Please select at least one bucket', 'warning');
+                return;
+            }
+            tool.annotations[convId] = {};
+            tool.buckets.forEach(bucket => {
+                const checkbox = document.querySelector(`input[name="${bucket}"]`);
+                if (checkbox.checked) {
+                    if (bucket === "HVA") {
+                        const dropdown = document.querySelector(`select[name="${bucket}-select"]`);
+                        tool.annotations[convId][bucket] = dropdown ? dropdown.value : '';
+                    } else {
+                        const textarea = document.querySelector(`textarea[name="${bucket}"]`);
+                        tool.annotations[convId][bucket] = textarea.value.trim();
+                    }
+                }
+            });
+            showStatus('✅ Annotations saved!', 'success');
+        }
+        function loadAnnotations() {
+            const convId = tool.conversations[tool.currentIndex][0].Id;
+            const savedAnnotations = tool.annotations[convId] || {};
+            tool.buckets.forEach(bucket => {
+                const bucketDiv = document.querySelector(`[data-bucket="${bucket}"]`);
+                const checkbox = bucketDiv.querySelector('input[type="checkbox"]');
+                const commentDiv = bucketDiv.querySelector('.bucket-comment');
+                checkbox.checked = false;
+                commentDiv.classList.remove('open');
+                bucketDiv.classList.remove('checked');
+                if (bucket === "HVA") {
+                    const dropdown = bucketDiv.querySelector('select');
+                    if (dropdown) dropdown.value = '';
+                } else {
+                    const textarea = bucketDiv.querySelector('textarea');
+                    if (textarea) textarea.value = '';
+                }
+            });
+            Object.entries(savedAnnotations).forEach(([bucket, value]) => {
+                const bucketDiv = document.querySelector(`[data-bucket="${bucket}"]`);
+                if (bucketDiv) {
+                    const checkbox = bucketDiv.querySelector('input[type="checkbox"]');
+                    const commentDiv = bucketDiv.querySelector('.bucket-comment');
+                    checkbox.checked = true;
+                    commentDiv.classList.add('open');
+                    bucketDiv.classList.add('checked');
+                    if (bucket === "HVA") {
+                        const dropdown = bucketDiv.querySelector('select');
+                        if (dropdown) dropdown.value = value;
+                    } else {
+                        const textarea = bucketDiv.querySelector('textarea');
+                        if (textarea) textarea.value = value;
+                    }
+                }
+            });
+        }
+        function showStatus(message, type) {
+            elements.statusMessage.textContent = message;
+            elements.statusMessage.className = `status-message alert alert-${type}`;
+            elements.statusMessage.style.display = 'block';
+            setTimeout(() => {
+                elements.statusMessage.style.display = 'none';
+            }, 3000);
+        }
+        function showLoading(show) {
+            elements.loadingSpinner.style.display = show ? 'flex' : 'none';
+        }
+        elements.bucketArea.addEventListener('change', (e) => {
+            if (e.target.type === 'checkbox') {
+                const bucketDiv = e.target.closest('.bucket');
+                const commentDiv = bucketDiv.querySelector('.bucket-comment');
+                const input = bucketDiv.querySelector('textarea, select');
+                if (e.target.checked) {
+                    commentDiv.classList.add('open');
+                    bucketDiv.classList.add('checked');
+                    setTimeout(() => input?.focus(), 300);
+                } else {
+                    commentDiv.classList.remove('open');
+                    bucketDiv.classList.remove('checked');
+                    if (input) {
+                        input.value = '';
+                    }
+                }
+            }
+        });
+        function s2ab(s) {
+            const buf = new ArrayBuffer(s.length);
+            const view = new Uint8Array(buf);
+            for (let i = 0; i < s.length; i++) {
+                view[i] = s.charCodeAt(i) & 0xFF;
+            }
+            return buf;
+        }
+        elements.downloadBtn.addEventListener('click', async () => {
+            try {
+                if (Object.keys(tool.annotations).length === 0) {
+                    showStatus('⚠️ No annotations to download', 'warning');
+                    return;
+                }
+                showLoading(true);
+                showStatus('💾 Preparing download...', 'info');
+                const annotatedData = [];
+                tool.conversations.forEach(conv => {
+                    const convId = conv[0].Id;
+                    const savedAnnotations = tool.annotations[convId];
+                    if (savedAnnotations && Object.keys(savedAnnotations).length > 0) {
+                        conv.forEach((message, index) => {
+                            const isFirstMessage = index === 0;
+                            const isLastMessage = index === conv.length - 1;
+                            const row = {
+                                'Id': message.Id,
+                                'llmGeneratedUserMessage': message.llmGeneratedUserMessage || '',
+                                'botMessage': message.botMessage || '',
+                                'Customer Feedback': isLastMessage ? message['Customer Feedback'] || '' : ''
+                            };
+                            if (isFirstMessage) {
+                                tool.buckets.forEach(bucket => {
+                                    row[bucket] = savedAnnotations[bucket] || '';
+                                });
+                            } else {
+                                tool.buckets.forEach(bucket => {
+                                    row[bucket] = '';
+                                });
+                            }
+                            annotatedData.push(row);
+                        });
+                    }
+                });
+                const ws = XLSX.utils.json_to_sheet(annotatedData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Annotations");
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+                const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                a.download = `annotated_conversations_${timestamp}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                const annotatedCount = new Set(annotatedData.map(row => row.Id)).size;
+                showStatus(`✅ Downloaded ${annotatedCount} conversation(s)!`, 'success');
+            } catch (error) {
+                showStatus('❌ Error downloading file', 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+        elements.prevBtn.addEventListener('click', () => {
+            if (tool.currentIndex > 0) {
+                tool.currentIndex--;
+                displayConversation();
+            } else {
+                showStatus('⚠️ This is the first conversation', 'warning');
+            }
+        });
+        elements.nextBtn.addEventListener('click', () => {
+            if (tool.currentIndex < tool.conversations.length - 1) {
+                tool.currentIndex++;
+                displayConversation();
+            } else {
+                showStatus('⚠️ This is the last conversation', 'warning');
+            }
+        });
+        elements.saveBtn.addEventListener('click', saveCurrentAnnotations);
+        document.addEventListener('keydown', (e) => {
+            if (elements.mainInterface.style.display === 'none') return;
+            if (e.key === 'ArrowLeft') {
+                elements.prevBtn.click();
+            } else if (e.key === 'ArrowRight') {
+                elements.nextBtn.click();
+            } else if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                elements.saveBtn.click();
+            }
+        });
+        createBucketUI();
+        window.addEventListener('resize', () => {
+            if (elements.mainInterface.style.display !== 'none') {
+                updateProgressBar();
+            }
+        });
+        window.addEventListener('beforeunload', (e) => {
+            if (Object.keys(tool.annotations).length > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+        console.log('Tool initialized and ready! 🚀');
+    </script>
+</body>
+</html>
